@@ -786,13 +786,19 @@ export function RegisterAgentModal({
                       setFormData({ ...formData, name: e.target.value })
                     }
                     placeholder="e.g., claude-assistant"
-                    className={`w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-gray-900 dark:text-gray-100 ${
+                      // Styling for normal/active state
+                      loading || success || editMode 
+                        ? "bg-gray-200 dark:bg-gray-700 cursor-not-allowed border-gray-300 dark:border-gray-600 focus:ring-0" 
+                        : "bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 border-gray-200 dark:border-gray-700"
+                    } ${
+                      // Styling for error state (overrides normal/active styling if present)
                       errors.name
                         ? "border-red-500"
-                        : "border-gray-200 dark:border-gray-700"
+                        : ""
                     }`}
-                    disabled={loading || success}
-                  />
+                    disabled={loading || success || editMode}
+                />
                   {errors.name && (
                     <p className="mt-1 text-xs text-red-500">{errors.name}</p>
                   )}
@@ -1104,8 +1110,9 @@ export function RegisterAgentModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || success}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                  disabled={loading || success || JSON.stringify(formData) === JSON.stringify(initialFormData)}
+                  className=                
+                  "px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                   {editMode ? "Update Agent" : "Register Agent"}
