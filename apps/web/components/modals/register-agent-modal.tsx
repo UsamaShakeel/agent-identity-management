@@ -74,8 +74,7 @@ export function RegisterAgentModal({
     privateKey: string;
   } | null>(null);
   const [loadingKeys, setLoadingKeys] = useState(false);
-
-  const [formData, setFormData] = useState<FormData>({
+  const createEmptyFormData = (): FormData => ({
     name: "",
     display_name: "",
     description: "",
@@ -87,14 +86,17 @@ export function RegisterAgentModal({
     talks_to: [],
     capabilities: [],
   });
-
+  const [formData, setFormData] = useState<FormData>(createEmptyFormData());
+  const [initialFormData, setInitialFormData] = useState<FormData>(
+    createEmptyFormData()
+  );
   const [newMcpServer, setNewMcpServer] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Update form data when initialData or editMode changes
   useEffect(() => {
     if (isOpen && editMode && initialData) {
-      setFormData({
+      const mapped: FormData = {
         name: initialData.name || "",
         display_name: initialData.display_name || "",
         description: initialData.description || "",
@@ -105,21 +107,14 @@ export function RegisterAgentModal({
         documentation_url: (initialData as any).documentation_url || "",
         talks_to: (initialData as any).talks_to || [],
         capabilities: (initialData as any).capabilities || [],
-      });
+      };
+      setFormData(mapped);
+      setInitialFormData(mapped);
     } else if (isOpen && !editMode) {
       // Reset form for new agent
-      setFormData({
-        name: "",
-        display_name: "",
-        description: "",
-        agent_type: "ai_agent",
-        version: "1.0.0",
-        certificate_url: "",
-        repository_url: "",
-        documentation_url: "",
-        talks_to: [],
-        capabilities: [],
-      });
+        const empty = createEmptyFormData();
+        setFormData(empty);
+        setInitialFormData(empty);
     }
   }, [isOpen, editMode, initialData]);
 
@@ -198,10 +193,8 @@ export function RegisterAgentModal({
       if (formData.talks_to.length > 0) {
         agentData.talks_to = formData.talks_to;
       }
-      if (formData.capabilities.length > 0) {
-        agentData.capabilities = formData.capabilities;
-      }
-
+      agentData.capabilities = formData.capabilities;
+      
       const result =
         editMode && initialData?.id
           ? await api.updateAgent(initialData.id, agentData)
@@ -339,18 +332,9 @@ export function RegisterAgentModal({
   };
 
   const resetForm = () => {
-    setFormData({
-      name: "",
-      display_name: "",
-      description: "",
-      agent_type: "ai_agent",
-      version: "1.0.0",
-      certificate_url: "",
-      repository_url: "",
-      documentation_url: "",
-      talks_to: [],
-      capabilities: [],
-    });
+    const empty = createEmptyFormData();
+    setFormData(empty);
+    setInitialFormData(empty);
     setNewMcpServer("");
     setErrors({});
     setError(null);
@@ -377,17 +361,7 @@ export function RegisterAgentModal({
     if (success) return false;
 
     // Check if any field has been filled out
-    return (
-      formData.name.trim() !== "" ||
-      formData.display_name.trim() !== "" ||
-      formData.description.trim() !== "" ||
-      formData.version !== "1.0.0" ||
-      formData.certificate_url.trim() !== "" ||
-      formData.repository_url.trim() !== "" ||
-      formData.documentation_url.trim() !== "" ||
-      formData.talks_to.length > 0 ||
-      formData.capabilities.length > 0
-    );
+   return JSON.stringify(formData) !== JSON.stringify(initialFormData);
   };
 
   // Handle click on overlay (outside modal)
