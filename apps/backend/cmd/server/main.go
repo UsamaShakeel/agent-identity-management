@@ -144,7 +144,7 @@ func main() {
 	// Global middleware
 	app.Use(middleware.RecoveryMiddleware())
 	app.Use(middleware.LoggerMiddleware())
-	app.Use(metrics.PrometheusMiddleware())    // Prometheus metrics collection
+	app.Use(metrics.PrometheusMiddleware())   // Prometheus metrics collection
 	app.Use(middleware.AnalyticsTracking(db)) // Real-time API call tracking
 	// app.Use(middleware.RequestLoggerMiddleware())
 
@@ -927,6 +927,7 @@ func setupRoutes(v1 fiber.Router, h *Handlers, services *Services, jwtService *a
 	// Alerts
 	admin.Get("/alerts", h.Admin.GetAlerts)
 	admin.Get("/alerts/unacknowledged/count", h.Admin.GetUnacknowledgedAlertCount)
+	admin.Post("/alerts/bulk-acknowledge", h.Admin.BulkAcknowledgeAlerts)
 	admin.Post("/alerts/:id/acknowledge", h.Admin.AcknowledgeAlert)
 	admin.Post("/alerts/:id/resolve", h.Admin.ResolveAlert)
 
