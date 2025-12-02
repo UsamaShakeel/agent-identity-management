@@ -61,6 +61,10 @@ func (s *AlertService) CountUnacknowledged(ctx context.Context, orgID uuid.UUID)
 	return allCount, acknowledgedCount, unacknowledgedCount, nil
 }
 
+func (s *AlertService) CountBySeverity(ctx context.Context, orgID uuid.UUID, status string) (critical, high, warning, info int, err error) {
+	return s.alertRepo.CountBySeverity(orgID, status)
+}
+
 // CheckAPIKeyExpiry checks for expiring API keys and creates alerts
 // NOTE: This method is not currently used but kept for future expansion
 // when API key expiry tracking is added to the system
@@ -191,21 +195,21 @@ type ApproveDriftRequest struct {
 
 // UnusualAccessPatternConfig defines thresholds for anomaly detection
 type UnusualAccessPatternConfig struct {
-	HighVolumeThreshold    int           // Number of requests that triggers high volume alert
-	TimeWindowMinutes      int           // Time window for rate limiting checks
-	OffHoursStart          int           // Hour when off-hours begin (e.g., 22 = 10 PM)
-	OffHoursEnd            int           // Hour when off-hours end (e.g., 6 = 6 AM)
-	NewResourceAlertDelay  time.Duration // Don't alert on new resources within this period
+	HighVolumeThreshold   int           // Number of requests that triggers high volume alert
+	TimeWindowMinutes     int           // Time window for rate limiting checks
+	OffHoursStart         int           // Hour when off-hours begin (e.g., 22 = 10 PM)
+	OffHoursEnd           int           // Hour when off-hours end (e.g., 6 = 6 AM)
+	NewResourceAlertDelay time.Duration // Don't alert on new resources within this period
 }
 
 // DefaultUnusualAccessConfig returns default configuration
 func DefaultUnusualAccessConfig() UnusualAccessPatternConfig {
 	return UnusualAccessPatternConfig{
-		HighVolumeThreshold:    100,             // 100+ requests in window
-		TimeWindowMinutes:      5,               // 5-minute window
-		OffHoursStart:          22,              // 10 PM
-		OffHoursEnd:            6,               // 6 AM
-		NewResourceAlertDelay:  24 * time.Hour,  // Don't alert for 24h on new resources
+		HighVolumeThreshold:   100,            // 100+ requests in window
+		TimeWindowMinutes:     5,              // 5-minute window
+		OffHoursStart:         22,             // 10 PM
+		OffHoursEnd:           6,              // 6 AM
+		NewResourceAlertDelay: 24 * time.Hour, // Don't alert for 24h on new resources
 	}
 }
 
@@ -479,9 +483,9 @@ type TrustScoreDropConfig struct {
 // DefaultTrustScoreDropConfig returns default configuration
 func DefaultTrustScoreDropConfig() TrustScoreDropConfig {
 	return TrustScoreDropConfig{
-		SignificantDropThreshold: 0.1,  // 10% drop
-		CriticalDropThreshold:    0.2,  // 20% drop
-		LowScoreThreshold:        0.5,  // 50% trust score
+		SignificantDropThreshold: 0.1, // 10% drop
+		CriticalDropThreshold:    0.2, // 20% drop
+		LowScoreThreshold:        0.5, // 50% trust score
 	}
 }
 

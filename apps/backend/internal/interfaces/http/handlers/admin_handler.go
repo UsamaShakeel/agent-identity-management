@@ -167,9 +167,9 @@ func (h *AdminHandler) ListUsers(c fiber.Ctx) error {
 		c.IP(),
 		c.Get("User-Agent"),
 		map[string]interface{}{
-			"totalUsers":            len(users),
-			"pendingRegistrations":  len(pendingRequests),
-			"totalCombined":         len(allUsers),
+			"totalUsers":           len(users),
+			"pendingRegistrations": len(pendingRequests),
+			"totalCombined":        len(allUsers),
 		},
 	)
 
@@ -643,7 +643,7 @@ func (h *AdminHandler) GetAlerts(c fiber.Ctx) error {
 		}
 	}
 
-	// Get alerts
+	// Get alerts for this page
 	alerts, total, err := h.alertService.GetAlerts(
 		c.Context(),
 		orgID,
@@ -658,21 +658,42 @@ func (h *AdminHandler) GetAlerts(c fiber.Ctx) error {
 		})
 	}
 
-	// Get alert counts (all, acknowledged, unacknowledged)
+	// Get alert counts (all, acknowledged, unacknowledged) across the organization.
+	// This uses a single optimized query in the alert service and is reused both
+	// by the alerts page and the sidebar badge.
 	allCount, acknowledgedCount, unacknowledgedCount, err := h.alertService.CountUnacknowledged(c.Context(), orgID)
 	if err != nil {
-		// If count fails, set defaults but don't fail the request
+		// If the aggregate query fails, fall back to the page-local totals so the
+		// endpoint still returns useful data instead of failing entirely.
 		allCount = total
 		acknowledgedCount = 0
 		unacknowledgedCount = 0
 	}
 
+	// Compute global severity buckets independent of pagination limits using a
+	// single optimized aggregate query in the alert service.
+	criticalCount, highCount, warningCount, infoCount, err := h.alertService.CountBySeverity(c.Context(), orgID, status)
+	if err != nil {
+		// If the aggregate query fails, fall back to zeroes but still return the page data.
+		criticalCount, highCount, warningCount, infoCount = 0, 0, 0, 0
+	}
+
+	// Frontend groups "warning" as Medium and "info" into the Low & Info bucket.
+	mediumCount := warningCount
+	lowAndInfoCount := infoCount
+
 	// Log audit with enhanced metadata
 	metadata := map[string]interface{}{
-		"results_returned": len(alerts),
-		"total_available":  total,
-		"page_number":      (offset / limit) + 1,
-		"page_size":        limit,
+		"results_returned":    len(alerts),
+		"total_available":     total,
+		"page_number":         (offset / limit) + 1,
+		"page_size":           limit,
+		"critical_count":      criticalCount,
+		"high_count":          highCount,
+		"warning_count":       warningCount,
+		"info_count":          infoCount,
+		"medium_bucket":       mediumCount,
+		"low_and_info_bucket": lowAndInfoCount,
 	}
 
 	// Only include non-empty filters
@@ -696,13 +717,17 @@ func (h *AdminHandler) GetAlerts(c fiber.Ctx) error {
 	)
 
 	return c.JSON(fiber.Map{
-		"alerts":               alerts,
-		"total":                total,
+		"alerts":              alerts,
+		"total":               total,
 		"allCount":            allCount,
 		"acknowledgedCount":   acknowledgedCount,
 		"unacknowledgedCount": unacknowledgedCount,
-		"limit":                limit,
-		"offset":               offset,
+		"criticalCount":       criticalCount,
+		"highCount":           highCount,
+		"mediumCount":         mediumCount,
+		"lowAndInfoCount":     lowAndInfoCount,
+		"limit":               limit,
+		"offset":              offset,
 	})
 }
 
@@ -950,12 +975,12 @@ func (h *AdminHandler) GetDashboardStats(c fiber.Ctx) error {
 		c.IP(),
 		c.Get("User-Agent"),
 		map[string]interface{}{
-			"totalAgents":      len(agents),
-			"verifiedAgents":   verifiedAgents,
+			"totalAgents":     len(agents),
+			"verifiedAgents":  verifiedAgents,
 			"totalMcpServers": len(mcpServersList),
-			"totalUsers":       len(users),
-			"activeAlerts":     total,
-			"criticalAlerts":   criticalAlerts,
+			"totalUsers":      len(users),
+			"activeAlerts":    total,
+			"criticalAlerts":  criticalAlerts,
 		},
 	)
 
@@ -965,7 +990,7 @@ func (h *AdminHandler) GetDashboardStats(c fiber.Ctx) error {
 		"verifiedAgents":   verifiedAgents,
 		"pendingAgents":    pendingAgents,
 		"verificationRate": verificationRate,
-		"avgTrustScore":   avgTrustScore,
+		"avgTrustScore":    avgTrustScore,
 
 		// MCP Server metrics
 		"totalMcpServers":  len(mcpServersList),

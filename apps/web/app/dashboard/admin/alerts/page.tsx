@@ -126,6 +126,10 @@ export default function AlertsPage() {
   const [allCount, setAllCount] = useState<number>(0);
   const [acknowledgedCount, setAcknowledgedCount] = useState<number>(0);
   const [unacknowledgedCount, setUnacknowledgedCount] = useState<number>(0);
+  const [criticalCount, setCriticalCount] = useState<number>(0);
+  const [highCount, setHighCount] = useState<number>(0);
+  const [mediumCount, setMediumCount] = useState<number>(0);
+  const [lowAndInfoCount, setLowAndInfoCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("unacknowledged");
@@ -154,6 +158,10 @@ export default function AlertsPage() {
       setAllCount(data.allCount || 0);
       setAcknowledgedCount(data.acknowledgedCount || 0);
       setUnacknowledgedCount(data.unacknowledgedCount || 0);
+      setCriticalCount(data.criticalCount || 0);
+      setHighCount(data.highCount || 0);
+      setMediumCount(data.mediumCount || 0);
+      setLowAndInfoCount(data.lowAndInfoCount || 0);
     } catch (error) {
       console.error("Failed to fetch alerts:", error);
     } finally {
@@ -305,25 +313,20 @@ export default function AlertsPage() {
 
   // Stats based on API counts and current filter
   const stats = {
-    total: allCount,
+    // Total should respect current status filter (all / acknowledged / unacknowledged)
+    total: totalFilteredCount,
     acknowledged: acknowledgedCount,
     unacknowledged: unacknowledgedCount,
-    // Severity counts are still calculated from loaded alerts (client-side)
-    // since API doesn't provide severity breakdown
-    critical: alerts.filter(
-      (a) => a.severity === "critical" && !a.isAcknowledged
-    ).length,
-    high: alerts.filter((a) => a.severity === "high" && !a.isAcknowledged)
-      .length,
-    medium: alerts.filter(
-      (a) =>
-        (a.severity === "medium" || a.severity === "warning") &&
-        !a.isAcknowledged
-    ).length,
-    low: alerts.filter(
-      (a) =>
-        (a.severity === "low" || a.severity === "info") && !a.isAcknowledged
-    ).length,
+    // Severity buckets come directly from backend and are independent of page size
+    critical: criticalCount,
+    high: highCount,
+    medium: mediumCount,
+    low: lowAndInfoCount,
+  };
+
+  const getStatusLabel = () => {
+    if (statusFilter === "all") return "All";
+    return statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1);
   };
 
   if (loading) {
@@ -403,7 +406,9 @@ export default function AlertsPage() {
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Alerts</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {getStatusLabel()}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -448,7 +453,7 @@ export default function AlertsPage() {
         <Card className="border-gray-200 bg-gray-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-800">
-              Low
+              Low And Info
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -42,6 +42,78 @@ export interface EndpointCategory {
 
 export const apiDocumentation: EndpointCategory[] = [
   {
+    category: "System & Health",
+    description: "System health checks, metrics, and status endpoints",
+    icon: "Activity",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/health",
+        description: "Basic health check endpoint. Returns service status.",
+        summary: "Health check",
+        auth: "None (Public)",
+        requiresAuth: false,
+        tags: ["system", "health"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            status: { type: "string", description: "Service status (healthy)" },
+            service: { type: "string", description: "Service name" },
+            time: { type: "string", description: "Current timestamp" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/health/ready",
+        description: "Readiness check endpoint. Verifies database and optional Redis connectivity.",
+        summary: "Readiness check",
+        auth: "None (Public)",
+        requiresAuth: false,
+        tags: ["system", "health"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            ready: { type: "boolean", description: "Service ready status" },
+            database: { type: "string", description: "Database status" },
+            redis: { type: "string", description: "Redis status (optional)" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/metrics",
+        description: "Prometheus metrics endpoint. Returns system metrics in Prometheus format.",
+        summary: "Prometheus metrics",
+        auth: "None (Public)",
+        requiresAuth: false,
+        tags: ["system", "metrics"],
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/status",
+        description: "Get system status and feature flags. Returns system information and enabled features.",
+        summary: "System status",
+        auth: "None (Public)",
+        requiresAuth: false,
+        tags: ["system", "status"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            status: { type: "string", description: "System status" },
+            version: { type: "string", description: "API version" },
+            uptime: { type: "number", description: "Uptime in seconds" },
+            features: { type: "object", description: "Feature flags" },
+          },
+        },
+        example: "No request body required",
+      },
+    ],
+  },
+  {
     category: "Authentication & Authorization",
     description:
       "User authentication, JWT tokens, password management, and session control",
@@ -361,10 +433,15 @@ export const apiDocumentation: EndpointCategory[] = [
               description: "User password (min 8 chars)",
               required: true,
             },
-            name: { type: "string", description: "Full name", required: true },
-            organization: {
+            firstName: {
               type: "string",
-              description: "Organization name (optional)",
+              description: "User first name",
+              required: true,
+            },
+            lastName: {
+              type: "string",
+              description: "User last name",
+              required: true,
             },
           },
         },
@@ -385,8 +462,8 @@ export const apiDocumentation: EndpointCategory[] = [
         example: `{
   "email": "newuser@company.com",
   "password": "SecurePass123!",
-  "name": "John Doe",
-  "organization": "Acme Corp"
+  "firstName": "John",
+  "lastName": "Doe"
 }`,
       },
       {
@@ -1196,13 +1273,139 @@ export const apiDocumentation: EndpointCategory[] = [
         example: "{}",
       },
       {
-        method: "GET",
-        path: "/api/v1/mcp-servers/:id/agents",
-        description: "Get all agents talking to this MCP server.",
-        summary: "Get MCP server agents",
+        method: "POST",
+        path: "/api/v1/mcp-servers/:id/keys",
+        description: "Add public key to MCP server. Registers Ed25519 public key for MCP server.",
+        summary: "Add MCP public key",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
+        roleRequired: "member",
+        tags: ["mcp", "credentials"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            publicKey: {
+              type: "string",
+              description: "Ed25519 public key (base64)",
+              required: true,
+            },
+          },
+        },
+        example: `{
+  "publicKey": "base64_encoded_public_key"
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/verification-status",
+        description: "Get MCP server verification status. Returns current verification state and history.",
+        summary: "Get verification status",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["mcp", "verification"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            verified: { type: "boolean", description: "Verification status" },
+            verifiedAt: { type: "string", description: "Verification timestamp" },
+            method: { type: "string", description: "Verification method" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/capabilities",
+        description: "Get detected capabilities for MCP server. Returns all capabilities detected for this MCP server.",
+        summary: "Get MCP capabilities",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["mcp", "capabilities"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            capabilities: { type: "array", description: "List of capabilities" },
+            count: { type: "number", description: "Total capability count" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/verification-events",
+        description: "Get verification events for MCP server. Returns all verification events related to this MCP server.",
+        summary: "Get MCP verification events",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["mcp", "verification", "events"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            events: { type: "array", description: "Verification events" },
+            count: { type: "number", description: "Total event count" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/mcp-servers/:id/verify-action",
+        description: "Verify MCP server action. Runtime verification for MCP server actions.",
+        summary: "Verify MCP action",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["mcp", "verification", "runtime"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            action: { type: "string", description: "Action name", required: true },
+            resourceType: { type: "string", description: "Resource type" },
+            context: { type: "object", description: "Action context" },
+          },
+        },
+        example: `{
+  "action": "read_file",
+  "resourceType": "file",
+  "context": {
+    "path": "/etc/passwd"
+  }
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/agents",
+        description: "Get all agents talking to this MCP server. Returns agents connected via attestation.",
+        summary: "Get MCP server agents",
+        auth: "Bearer Token (JWT) or Ed25519 (Agent Signature)",
+        requiresAuth: true,
         tags: ["mcp", "relationships"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            agents: { type: "array", description: "Connected agents" },
+            count: { type: "number", description: "Total agent count" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/attestations",
+        description: "Get all agent attestations for this MCP server. Shows which agents have verified this MCP (Ed25519 authenticated).",
+        summary: "Get MCP attestations",
+        auth: "Ed25519 (Agent Signature)",
+        requiresAuth: true,
+        tags: ["mcp", "attestation"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            attestations: {
+              type: "array",
+              description: "List of attestation records",
+            },
+            count: { type: "number", description: "Total attestations" },
+          },
+        },
         example: "No request body required",
       },
       {
@@ -1525,19 +1728,19 @@ export const apiDocumentation: EndpointCategory[] = [
       {
         method: "GET",
         path: "/api/v1/verification-events/recent",
-        description: "Get recent verification events (last 24 hours).",
+        description: "Get recent verification events. Supports minutes query parameter to specify time window.",
         summary: "Recent verification events",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
         roleRequired: "manager",
         tags: ["verification", "events"],
-        example: "No request body required",
+        example: "?minutes=10080 for last 7 days (default is 24 hours)",
       },
       {
         method: "GET",
         path: "/api/v1/verification-events/statistics",
         description:
-          "Get verification statistics: success rate, failure rate, total count.",
+          "Get verification statistics: success rate, failure rate, total count. Supports period query parameter (24h, 7d, 30d).",
         summary: "Verification statistics",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
@@ -1546,18 +1749,26 @@ export const apiDocumentation: EndpointCategory[] = [
         responseSchema: {
           type: "object",
           properties: {
-            total: { type: "number", description: "Total verifications" },
+            totalVerifications: { type: "number", description: "Total verifications" },
+            successCount: { type: "number", description: "Successful verifications" },
+            failedCount: { type: "number", description: "Failed verifications" },
+            pendingCount: { type: "number", description: "Pending verifications" },
+            timeoutCount: { type: "number", description: "Timeout verifications" },
             successRate: {
               type: "number",
               description: "Success rate percentage",
             },
-            failureRate: {
-              type: "number",
-              description: "Failure rate percentage",
-            },
+            avgDurationMs: { type: "number", description: "Average duration in milliseconds" },
+            avgConfidence: { type: "number", description: "Average confidence score" },
+            avgTrustScore: { type: "number", description: "Average trust score" },
+            verificationsPerMinute: { type: "number", description: "Verifications per minute" },
+            uniqueAgentsVerified: { type: "number", description: "Unique agents verified" },
+            protocolDistribution: { type: "object", description: "Distribution by protocol" },
+            typeDistribution: { type: "object", description: "Distribution by type" },
+            initiatorDistribution: { type: "object", description: "Distribution by initiator" },
           },
         },
-        example: "No request body required",
+        example: "?period=24h for last 24 hours (default)",
       },
       {
         method: "GET",
@@ -1572,12 +1783,36 @@ export const apiDocumentation: EndpointCategory[] = [
       },
       {
         method: "GET",
-        path: "/api/v1/verification-events/agent/:agentId",
-        description: "Get verification events for specific agent.",
+        path: "/api/v1/verification-events/agent/:id",
+        description: "Get verification events for specific agent. Returns all verification events for the specified agent ID.",
         summary: "Agent verification events",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
         tags: ["verification", "agents"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            events: { type: "array", description: "Verification events for agent" },
+            count: { type: "number", description: "Total events" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/verification-events/mcp/:id",
+        description: "Get verification events for specific MCP server. Returns all verification events for the specified MCP server ID.",
+        summary: "MCP verification events",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["verification", "mcp"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            events: { type: "array", description: "Verification events for MCP" },
+            count: { type: "number", description: "Total events" },
+          },
+        },
         example: "No request body required",
       },
       {
@@ -1774,6 +2009,164 @@ export const apiDocumentation: EndpointCategory[] = [
         requiresAuth: true,
         roleRequired: "manager",
         tags: ["tags"],
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/tags/popular",
+        description: "Get popular tags. Returns most frequently used tags in the organization.",
+        summary: "Popular tags",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["tags"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            tags: { type: "array", description: "Popular tags with usage counts" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/tags/search",
+        description: "Search tags by name. Returns matching tags.",
+        summary: "Search tags",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["tags"],
+        example: "?q=production for searching tags containing 'production'",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/agents/:id/tags",
+        description: "Get tags for specific agent. Returns all tags assigned to the agent.",
+        summary: "Get agent tags",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["tags", "agents"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            tags: { type: "array", description: "Agent tags" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/agents/:id/tags",
+        description: "Add tags to agent. Assigns one or more tags to an agent.",
+        summary: "Add tags to agent",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["tags", "agents"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            tagIds: {
+              type: "array",
+              description: "Array of tag IDs to add",
+              required: true,
+            },
+          },
+        },
+        example: `{
+  "tagIds": ["uuid-tag-1", "uuid-tag-2"]
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/v1/agents/:id/tags/:tagId",
+        description: "Remove tag from agent. Unassigns a tag from an agent.",
+        summary: "Remove tag from agent",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["tags", "agents"],
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/agents/:id/tags/suggestions",
+        description: "Get tag suggestions for agent. Returns recommended tags based on agent properties.",
+        summary: "Tag suggestions for agent",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["tags", "agents"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            suggestions: { type: "array", description: "Suggested tags" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/tags",
+        description: "Get tags for specific MCP server. Returns all tags assigned to the MCP server.",
+        summary: "Get MCP server tags",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["tags", "mcp"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            tags: { type: "array", description: "MCP server tags" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/mcp-servers/:id/tags",
+        description: "Add tags to MCP server. Assigns one or more tags to an MCP server.",
+        summary: "Add tags to MCP server",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["tags", "mcp"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            tagIds: {
+              type: "array",
+              description: "Array of tag IDs to add",
+              required: true,
+            },
+          },
+        },
+        example: `{
+  "tagIds": ["uuid-tag-1", "uuid-tag-2"]
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/v1/mcp-servers/:id/tags/:tagId",
+        description: "Remove tag from MCP server. Unassigns a tag from an MCP server.",
+        summary: "Remove tag from MCP server",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["tags", "mcp"],
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/mcp-servers/:id/tags/suggestions",
+        description: "Get tag suggestions for MCP server. Returns recommended tags based on MCP server properties.",
+        summary: "Tag suggestions for MCP server",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["tags", "mcp"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            suggestions: { type: "array", description: "Suggested tags" },
+          },
+        },
         example: "No request body required",
       },
     ],
@@ -2143,17 +2536,6 @@ export const apiDocumentation: EndpointCategory[] = [
       },
       {
         method: "GET",
-        path: "/api/v1/admin/alerts/unacknowledged",
-        description: "Get unacknowledged alerts.",
-        summary: "Unacknowledged alerts",
-        auth: "Bearer Token (JWT)",
-        requiresAuth: true,
-        roleRequired: "manager",
-        tags: ["alerts"],
-        example: "No request body required",
-      },
-      {
-        method: "GET",
         path: "/api/v1/admin/alerts/unacknowledged/count",
         description: "Get count of unacknowledged alerts.",
         summary: "Unack alert count",
@@ -2168,6 +2550,36 @@ export const apiDocumentation: EndpointCategory[] = [
           },
         },
         example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/admin/alerts/bulk-acknowledge",
+        description: "Bulk acknowledge multiple alerts at once. Efficient for acknowledging multiple alerts in a single request.",
+        summary: "Bulk acknowledge alerts",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "manager",
+        tags: ["alerts"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            alertIds: {
+              type: "array",
+              description: "Array of alert IDs to acknowledge",
+              required: true,
+            },
+          },
+        },
+        responseSchema: {
+          type: "object",
+          properties: {
+            acknowledged: { type: "number", description: "Number of alerts acknowledged" },
+            failed: { type: "number", description: "Number of alerts that failed to acknowledge" },
+          },
+        },
+        example: `{
+  "alertIds": ["uuid-1", "uuid-2", "uuid-3"]
+}`,
       },
       {
         method: "POST",
@@ -2275,6 +2687,25 @@ export const apiDocumentation: EndpointCategory[] = [
         requiresAuth: true,
         roleRequired: "manager",
         tags: ["security"],
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/security/metrics",
+        description: "Get security metrics and statistics. Returns aggregated security data for monitoring.",
+        summary: "Security metrics",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "manager",
+        tags: ["security", "analytics"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            threats: { type: "number", description: "Active threat count" },
+            alerts: { type: "number", description: "Active alert count" },
+            incidents: { type: "number", description: "Security incident count" },
+          },
+        },
         example: "No request body required",
       },
       {
@@ -2592,6 +3023,90 @@ export const apiDocumentation: EndpointCategory[] = [
         },
         example: "{}",
       },
+      {
+        method: "POST",
+        path: "/api/v1/admin/registration-requests/:id/approve",
+        description: "Approve pending registration request. Used for OAuth and other registration workflows.",
+        summary: "Approve registration request",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["admin", "registration"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            role: {
+              type: "string",
+              description: "Role to assign (admin, manager, member, viewer)",
+              required: true,
+            },
+          },
+        },
+        example: `{
+  "role": "member"
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/v1/admin/registration-requests/:id/reject",
+        description: "Reject pending registration request.",
+        summary: "Reject registration request",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["admin", "registration"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            reason: {
+              type: "string",
+              description: "Rejection reason",
+            },
+          },
+        },
+        example: `{
+  "reason": "Invalid organization"
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/v1/admin/organization/settings",
+        description: "Get organization settings. Read-only endpoint for organization configuration.",
+        summary: "Get organization settings",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["admin", "organization"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Organization ID" },
+            name: { type: "string", description: "Organization name" },
+            settings: { type: "object", description: "Organization settings" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/admin/dashboard/stats",
+        description: "Get dashboard statistics for admin panel. Returns aggregated metrics for agents, users, alerts, and system health.",
+        summary: "Get dashboard stats",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["admin", "dashboard", "analytics"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            agents: { type: "object", description: "Agent statistics" },
+            users: { type: "object", description: "User statistics" },
+            alerts: { type: "object", description: "Alert statistics" },
+            system: { type: "object", description: "System health metrics" },
+          },
+        },
+        example: "No request body required",
+      },
     ],
   },
 
@@ -2662,20 +3177,44 @@ export const apiDocumentation: EndpointCategory[] = [
     endpoints: [
       {
         method: "GET",
-        path: "/api/v1/admin/compliance",
-        description: "Get compliance dashboard.",
-        summary: "Compliance dashboard",
+        path: "/api/v1/compliance/status",
+        description: "Get compliance status. Returns current compliance status and metrics.",
+        summary: "Compliance status",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
         roleRequired: "admin",
         tags: ["compliance"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            status: { type: "string", description: "Compliance status" },
+            lastCheck: { type: "string", description: "Last compliance check timestamp" },
+          },
+        },
         example: "No request body required",
       },
       {
         method: "GET",
-        path: "/api/v1/admin/compliance/audit-logs",
-        description: "Get audit logs for compliance.",
-        summary: "Compliance audit logs",
+        path: "/api/v1/compliance/metrics",
+        description: "Get compliance metrics. Returns compliance-related metrics and statistics.",
+        summary: "Compliance metrics",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["compliance", "analytics"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            metrics: { type: "object", description: "Compliance metrics" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/compliance/audit-log/access-review",
+        description: "Get access review from audit logs. Returns access review data from audit log.",
+        summary: "Access review (audit log)",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
         roleRequired: "admin",
@@ -2684,84 +3223,271 @@ export const apiDocumentation: EndpointCategory[] = [
       },
       {
         method: "GET",
-        path: "/api/v1/admin/compliance/access-reviews",
-        description: "Get access review reports.",
-        summary: "Access reviews",
+        path: "/api/v1/compliance/access-review",
+        description: "Get access review reports. Returns access review data and reports.",
+        summary: "Access review",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
         roleRequired: "admin",
         tags: ["compliance"],
-        example: "No request body required",
-      },
-      {
-        method: "GET",
-        path: "/api/v1/admin/compliance/data-retention",
-        description: "Get data retention policy status.",
-        summary: "Data retention",
-        auth: "Bearer Token (JWT)",
-        requiresAuth: true,
-        roleRequired: "admin",
-        tags: ["compliance"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            reviews: { type: "array", description: "Access review records" },
+          },
+        },
         example: "No request body required",
       },
       {
         method: "POST",
-        path: "/api/v1/admin/compliance/export",
-        description: "Export compliance report (SOC 2, HIPAA, GDPR).",
+        path: "/api/v1/compliance/check",
+        description: "Run compliance check. Triggers automated compliance verification.",
+        summary: "Run compliance check",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["compliance"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            checkId: { type: "string", description: "Compliance check ID" },
+            status: { type: "string", description: "Check status" },
+          },
+        },
+        example: "{}",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/compliance/export",
+        description: "Export compliance report. Generates and exports compliance report (SOC 2, HIPAA, GDPR).",
         summary: "Export compliance report",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
         roleRequired: "admin",
         tags: ["compliance", "reports"],
-        requestSchema: {
-          type: "object",
-          properties: {
-            reportType: {
-              type: "string",
-              description: "Report type (soc2, hipaa, gdpr)",
-              required: true,
-            },
-            startDate: { type: "string", description: "Start date" },
-            endDate: { type: "string", description: "End date" },
-          },
-        },
-        example: `{
-  "reportType": "soc2",
-  "startDate": "2025-01-01",
-  "endDate": "2025-12-31"
-}`,
+        example: "?reportType=soc2&startDate=2025-01-01&endDate=2025-12-31",
       },
+    ],
+  },
+  {
+    category: "Capabilities",
+    description: "Agent capability management, granting, revoking, and violation tracking",
+    icon: "Zap",
+    endpoints: [
       {
         method: "GET",
-        path: "/api/v1/admin/compliance/violations",
-        description: "Get compliance violations.",
-        summary: "Compliance violations",
+        path: "/api/v1/capabilities",
+        description: "List all available capability types. Returns all capability types that can be granted to agents.",
+        summary: "List capabilities",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
-        roleRequired: "admin",
-        tags: ["compliance"],
+        tags: ["capabilities"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            capabilities: { type: "array", description: "List of capability types" },
+          },
+        },
         example: "No request body required",
       },
       {
         method: "GET",
-        path: "/api/v1/admin/compliance/certifications",
-        description: "Get compliance certifications status.",
-        summary: "Certifications status",
+        path: "/api/v1/agents/:id/capabilities",
+        description: "Get agent capabilities. Returns all capabilities granted to the specified agent.",
+        summary: "Get agent capabilities",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
-        roleRequired: "admin",
-        tags: ["compliance"],
+        tags: ["capabilities", "agents"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            capabilities: { type: "array", description: "Agent capabilities" },
+            count: { type: "number", description: "Total capability count" },
+          },
+        },
         example: "No request body required",
       },
       {
         method: "POST",
-        path: "/api/v1/admin/compliance/automated-check",
-        description: "Trigger automated compliance check.",
-        summary: "Automated compliance check",
+        path: "/api/v1/agents/:id/capabilities",
+        description: "Grant capability to agent. Assigns a new capability to an agent (manager-only).",
+        summary: "Grant capability",
         auth: "Bearer Token (JWT)",
         requiresAuth: true,
-        roleRequired: "admin",
-        tags: ["compliance"],
+        roleRequired: "manager",
+        tags: ["capabilities", "agents"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            capabilityType: {
+              type: "string",
+              description: "Capability type to grant",
+              required: true,
+            },
+            reason: {
+              type: "string",
+              description: "Reason for granting capability",
+            },
+          },
+        },
+        example: `{
+  "capabilityType": "write_database",
+  "reason": "Need to update user records"
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/v1/agents/:id/capabilities/:capabilityId",
+        description: "Revoke capability from agent. Removes a capability from an agent (manager-only).",
+        summary: "Revoke capability",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "manager",
+        tags: ["capabilities", "agents"],
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/agents/:id/violations",
+        description: "Get agent violations. Returns all capability violations for the specified agent.",
+        summary: "Get agent violations",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["capabilities", "agents", "violations"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            violations: { type: "array", description: "Agent violations" },
+            count: { type: "number", description: "Total violation count" },
+          },
+        },
+        example: "No request body required",
+      },
+    ],
+  },
+  {
+    category: "Webhooks",
+    description: "Webhook management for event notifications and integrations",
+    icon: "Webhook",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/v1/webhooks",
+        description: "List all webhooks. Returns all webhooks configured for the organization.",
+        summary: "List webhooks",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["webhooks"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            webhooks: { type: "array", description: "List of webhooks" },
+            total: { type: "number", description: "Total webhook count" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/webhooks",
+        description: "Create new webhook. Registers a new webhook for event notifications (member-only).",
+        summary: "Create webhook",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["webhooks"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "Webhook URL",
+              required: true,
+            },
+            events: {
+              type: "array",
+              description: "Events to subscribe to",
+              required: true,
+            },
+            secret: {
+              type: "string",
+              description: "Webhook secret for signature verification",
+            },
+          },
+        },
+        example: `{
+  "url": "https://example.com/webhook",
+  "events": ["agent.created", "alert.triggered"],
+  "secret": "webhook-secret-key"
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/v1/webhooks/:id",
+        description: "Get webhook details. Returns details of a specific webhook.",
+        summary: "Get webhook",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["webhooks"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Webhook ID" },
+            url: { type: "string", description: "Webhook URL" },
+            events: { type: "array", description: "Subscribed events" },
+            status: { type: "string", description: "Webhook status" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "PUT",
+        path: "/api/v1/webhooks/:id",
+        description: "Update webhook. Updates webhook configuration (member-only).",
+        summary: "Update webhook",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["webhooks"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "New webhook URL" },
+            events: { type: "array", description: "Updated events list" },
+            secret: { type: "string", description: "New webhook secret" },
+          },
+        },
+        example: `{
+  "url": "https://new-url.com/webhook",
+  "events": ["agent.updated", "alert.resolved"]
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/v1/webhooks/:id",
+        description: "Delete webhook. Removes a webhook (member-only).",
+        summary: "Delete webhook",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "member",
+        tags: ["webhooks"],
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/webhooks/:id/test",
+        description: "Test webhook. Sends a test event to the webhook URL to verify configuration.",
+        summary: "Test webhook",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["webhooks", "testing"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            success: { type: "boolean", description: "Test success status" },
+            response: { type: "object", description: "Webhook response" },
+          },
+        },
         example: "{}",
       },
     ],
@@ -2773,6 +3499,106 @@ export const apiDocumentation: EndpointCategory[] = [
       "SDK endpoints for testing alerts, verifications, and capability workflows",
     icon: "Zap",
     endpoints: [
+      {
+        method: "POST",
+        path: "/api/v1/sdk-api/verifications",
+        description: "Create verification request via SDK. Tests capability-based access control. Creates alerts on violations.",
+        summary: "SDK: Create verification",
+        auth: "Ed25519 (Agent Signature) or Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["sdk", "verification", "testing"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            agent_id: {
+              type: "string",
+              description: "Agent ID",
+              required: true,
+            },
+            action_type: {
+              type: "string",
+              description: "Action type (e.g., execute_code, write_database)",
+              required: true,
+            },
+            resource: {
+              type: "string",
+              description: "Resource being accessed",
+              required: true,
+            },
+            context: { type: "object", description: "Action context metadata" },
+            timestamp: { type: "string", description: "ISO 8601 timestamp" },
+          },
+        },
+        responseSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Verification ID" },
+            status: { type: "string", description: "allowed or blocked" },
+            agent_id: { type: "string", description: "Agent ID" },
+            action_type: { type: "string", description: "Action type" },
+            alert_created: {
+              type: "boolean",
+              description: "Whether alert was created",
+            },
+          },
+        },
+        example: `{
+  "agent_id": "uuid-agent-123",
+  "action_type": "execute_code",
+  "resource": "eval(user_input)",
+  "context": {
+    "code": "print('hello')",
+    "risk": "high"
+  },
+  "timestamp": "2025-10-23T10:00:00Z"
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/v1/sdk-api/verifications/:id",
+        description: "Get verification status via SDK. Check if a verification request has been approved, rejected, or is still pending.",
+        summary: "SDK: Get verification",
+        auth: "Ed25519 (Agent Signature) or Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["sdk", "verification"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Verification ID" },
+            status: { type: "string", description: "Current status (pending, approved, rejected, expired)" },
+            agent_id: { type: "string", description: "Agent ID" },
+            action_type: { type: "string", description: "Type of action" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/sdk-api/verifications/:id/result",
+        description: "Submit verification result via SDK. Called by authorized users to approve/reject agent action verification requests.",
+        summary: "SDK: Submit verification result",
+        auth: "Ed25519 (Agent Signature) or Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["sdk", "verification"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            status: {
+              type: "string",
+              description: "Verification result: 'approved' or 'rejected'",
+              required: true,
+            },
+            comments: {
+              type: "string",
+              description: "Optional comments about the decision",
+            },
+          },
+        },
+        example: `{
+  "status": "approved",
+  "comments": "Approved with monitoring"
+}`,
+      },
       {
         method: "POST",
         path: "/api/v1/sdk-api/agents",
@@ -3124,6 +3950,24 @@ export const apiDocumentation: EndpointCategory[] = [
     endpoints: [
       {
         method: "GET",
+        path: "/api/v1/analytics/dashboard",
+        description: "Get dashboard statistics. Viewer-accessible analytics dashboard with key metrics.",
+        summary: "Dashboard stats",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        tags: ["analytics", "dashboard"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            agents: { type: "object", description: "Agent statistics" },
+            verifications: { type: "object", description: "Verification statistics" },
+            alerts: { type: "object", description: "Alert statistics" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
         path: "/api/v1/analytics/usage",
         description: "Get usage statistics.",
         summary: "Usage statistics",
@@ -3204,6 +4048,42 @@ export const apiDocumentation: EndpointCategory[] = [
             total_agents: { type: "number", description: "Total agent count" },
             verified_agents: { type: "number", description: "Verified count" },
             total_users: { type: "number", description: "Total users" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/analytics/verification-activity",
+        description: "Get verification activity data for charts. Returns time-series data for verification events.",
+        summary: "Verification activity",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "manager",
+        tags: ["analytics", "verification"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            data: { type: "array", description: "Time-series verification data" },
+            period: { type: "string", description: "Time period" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "GET",
+        path: "/api/v1/analytics/agents/activity",
+        description: "Get agent activity statistics. Returns activity metrics for agents.",
+        summary: "Agent activity",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "manager",
+        tags: ["analytics", "agents"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            agents: { type: "array", description: "Agent activity data" },
+            total: { type: "number", description: "Total agent count" },
           },
         },
         example: "No request body required",
@@ -3365,6 +4245,69 @@ export const apiDocumentation: EndpointCategory[] = [
     "rollback_plan_required",
     "monitoring_enabled"
   ]
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/v1/admin/verifications/pending",
+        description: "List pending verifications. Returns all verification requests awaiting admin approval (admin-only).",
+        summary: "List pending verifications",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["verifications", "admin"],
+        responseSchema: {
+          type: "object",
+          properties: {
+            verifications: { type: "array", description: "Pending verification requests" },
+            count: { type: "number", description: "Total pending count" },
+          },
+        },
+        example: "No request body required",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/admin/verifications/:id/approve",
+        description: "Approve verification request. Admin-only endpoint to approve agent action verification requests.",
+        summary: "Approve verification",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["verifications", "admin"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            comments: {
+              type: "string",
+              description: "Optional approval comments",
+            },
+          },
+        },
+        example: `{
+  "comments": "Approved after security review"
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/v1/admin/verifications/:id/deny",
+        description: "Deny verification request. Admin-only endpoint to reject agent action verification requests.",
+        summary: "Deny verification",
+        auth: "Bearer Token (JWT)",
+        requiresAuth: true,
+        roleRequired: "admin",
+        tags: ["verifications", "admin"],
+        requestSchema: {
+          type: "object",
+          properties: {
+            reason: {
+              type: "string",
+              description: "Denial reason",
+              required: true,
+            },
+          },
+        },
+        example: `{
+  "reason": "Security policy violation"
 }`,
       },
     ],
